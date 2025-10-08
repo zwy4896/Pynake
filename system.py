@@ -34,21 +34,37 @@ class InputSystem:
 
     def handle_key_event(self, key, direction, map_comp, input_component):
         action = self.key_mapping.get(key)
-        if not map_comp.paused:
-            if action in ['left', 'right', 'up', 'down']:
-                if self.is_opposite(action, direction.direction):
-                    input_component.next_direction = action  # 缓存输入方向
-            if action == 'pause':
-                map_comp.paused = not map_comp.paused
-            elif action == 'restart':
-                map_comp.game_over = False
-                map_comp.restart = True
-        else:
-            if action == 'pause':
-                map_comp.paused = not map_comp.paused
-            elif action == 'restart':
-                map_comp.game_over = False
-                map_comp.restart = True
+        if not action:
+            return
+        handlers = {
+            'running': self._handle_running,
+            'paused': self._handle_paused,
+            'game_over': self._handle_game_over
+        }
+
+        state = 'game_over' if map_comp.game_over else 'paused' if map_comp.paused else 'running'
+        handlers[state](action, direction, map_comp, input_component)
+    def _handle_running(self, action, direction, map_comp, input_component):
+        if action in ['left', 'right', 'up', 'down']:
+            if not self.is_opposite(action, direction.direction):
+                input_component.next_direction = action
+        elif action == 'pause':
+            map_comp.paused = True
+        elif action == 'restart':
+            map_comp.game_over = False
+            map_comp.restart = True
+
+    def _handle_paused(self, action, direction, map_comp, input_component):
+        if action == 'pause':
+            map_comp.paused = False
+        elif action == 'restart':
+            map_comp.game_over = False
+            map_comp.restart = True
+
+    def _handle_game_over(self, action, direction, map_comp, input_component):
+        if action == 'restart':
+            map_comp.game_over = False
+            map_comp.restart = True
 
     def is_opposite(self, new, current):
         # 检查新方向是否与当前方向相反
@@ -86,10 +102,17 @@ class CollisionSystem(MovementSystem):
         self.playfield_height = config.PLAYFIELD_HEIGHT
     
     def process(self, snake_position, snake_state, food_position, food_state):
+        head = (snake_position.x, snake_position.y)
         if not (snake_position.x in range(0, self.playfield_width) and snake_position.y in range(0, self.playfield_height)):
             # 与边界碰撞，状态=碰撞，死亡
             snake_state.collision = True
             snake_state.is_alive = False
+            return
+        if head in list(snake_state.shape_set - {head}):
+            # 自身碰撞
+            snake_state.collision = True
+            snake_state.is_alive = False
+            return
         if food_position.x == snake_position.x and food_position.y == snake_position.y:
             # 吃到食物
             snake_state.collision = True
@@ -106,7 +129,7 @@ class RenderSystem:
         self.screen = screen
         self.block_size = config.BLOCK_SIZE
         self.color = eval(config.COLOR)
-        self.real_block_size = self.block_size-3
+        self.real_block_size = self.block_size-4
         self.font = pygame.font.Font(None, 36)
         self.play_field = pygame.Surface((config.PLAYFIELD_WIDTH*self.block_size, config.PLAYFIELD_HEIGHT*self.block_size))
         self.score_board = pygame.Surface((config.SCREEN_WIDTH - config.PLAYFIELD_WIDTH*self.block_size, config.SCOREBOARD_HEIGHT))
@@ -130,7 +153,7 @@ class RenderSystem:
         for x in range(0, self.play_field.get_width(), self.block_size):
             pygame.draw.line(self.grid_surface, (100,156,200,255), (x, 0), (x, self.play_field.get_height()),3)
         for y in range(0, self.play_field.get_height(), self.block_size):
-            pygame.draw.line(self.grid_surface, (100,120,200,255), (0, y), (self.play_field.get_width(), y),3)
+            pygame.draw.line(self.grid_surface, (100,156,200,255), (0, y), (self.play_field.get_width(), y),3)
         self.screen.blit(self.grid_surface, (0,0))
     def _render_pause(self):
         self.screen.blit(self.pause_text, self.pause_text_rect)
@@ -138,7 +161,7 @@ class RenderSystem:
     def _render_block(self, pos_mat, color_mat):
         nonzero_indices = np.where(pos_mat != 0)
         for x, y in zip(nonzero_indices[0], nonzero_indices[1]):
-            block_rect = pygame.Rect(x*self.block_size, y*self.block_size, self.real_block_size, self.real_block_size)
+            block_rect = pygame.Rect(x*self.block_size+2, y*self.block_size+2, self.real_block_size, self.real_block_size)
             pygame.draw.rect(self.screen, color_mat[pos_mat[x][y]], block_rect)
     
     def _render_score(self):
@@ -174,6 +197,7 @@ class MapSystem:
                     snake_state.shape.pop()
             for (x,y) in snake_state.shape:
                 map_mat.map_cache[x][y] = self.config.SNAKE_IDX
+            snake_state.shape_set = set(snake_state.shape)
             map_mat.map_cache[food_position.x][food_position.y] = self.config.FOOD_IDX
             map_mat.snake_map = map_mat.map_cache
         else:

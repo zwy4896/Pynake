@@ -42,6 +42,7 @@ class StateComponent:
         self.length = length
         self.is_alive = True
         self.shape = []
+        self.shape_set = set()
         self.eaten = False
 
 class MapComponent:
