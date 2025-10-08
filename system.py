@@ -75,9 +75,7 @@ class InputSystem:
                (new == 'right' and current != 'left')
 # 移动系统
 class MovementSystem:
-    def process(self, position, speed, direction, state, input_component):
-        if state.is_blocked:
-            state.is_blocked = not state.is_blocked
+    def process(self, position, speed, direction, state, input_component, food_state):
         if state.is_alive:
             self.apply_direction(direction, input_component)
             if direction.direction == 'left':
@@ -90,6 +88,11 @@ class MovementSystem:
                 position.y += 1
             new_head = (position.x, position.y)
             state.shape.insert(0, new_head)
+            
+            if not food_state.eaten:
+                state.shape.pop()
+            else:
+                food_state.eaten = False
 
     def apply_direction(self, direction, input_component):
         # 在蛇移动前调用，将 next_direction 应用
@@ -104,39 +107,34 @@ class CollisionSystem(MovementSystem):
         self.playfield_height = config.PLAYFIELD_HEIGHT
     
     def process(self, snake_position, snake_state, food_position, food_state):
-        print('BLOCKED!!!!!',snake_state.is_blocked)
-        print('EATEN##############',food_state.eaten)
-        if not snake_state.is_blocked:
-            head = (snake_position.x, snake_position.y)
-            if not (snake_position.x in range(0, self.playfield_width) and snake_position.y in range(0, self.playfield_height)):
-                # 与边界碰撞，状态=碰撞，死亡
-                snake_state.collision = True
-                snake_state.is_alive = False
-                snake_state.is_blocked = True
-                return 1
-            if head in snake_state.shape[1:]:
-                # 自身碰撞
-                snake_state.collision = True
-                snake_state.is_alive = False
-                snake_state.is_blocked = True
-                return 2
-            if food_position.x == snake_position.x and food_position.y == snake_position.y:
-                # 吃到食物
-                snake_state.collision = True
-                snake_state.is_alive = True
-                snake_state.is_blocked = True
-                food_state.collision = True
-                food_state.is_alive = False
-                food_state.active = False
-                food_state.eaten = True
-                return 3
-            else:
-                food_state.eaten = False
-                snake_state.collision = False
-                snake_state.is_alive = True
-                snake_state.is_blocked = False
-                return 0
+        head = (snake_position.x, snake_position.y)
+        if not (snake_position.x in range(0, self.playfield_width) and snake_position.y in range(0, self.playfield_height)):
+            # 与边界碰撞，状态=碰撞，死亡
+            snake_state.collision = True
+            snake_state.is_alive = False
+            snake_state.is_blocked = True
+            return 1
+        if head in snake_state.shape[1:]:
+            # 自身碰撞
+            snake_state.collision = True
+            snake_state.is_alive = False
+            snake_state.is_blocked = True
+            return 2
+        if food_position.x == snake_position.x and food_position.y == snake_position.y:
+            # 吃到食物
+            snake_state.collision = True
+            snake_state.is_alive = True
+            snake_state.is_blocked = True
+            food_state.collision = True
+            food_state.is_alive = False
+            food_state.active = False
+            food_state.eaten = True
+            return 3
         else:
+            food_state.eaten = False
+            snake_state.collision = False
+            snake_state.is_alive = True
+            snake_state.is_blocked = False
             return 0
             
 # 渲染系统
@@ -203,14 +201,10 @@ class MapSystem:
         # 1: snake
         # 2: food
         # 3: obstacle
-
         map_mat.map_cache = map_mat.snake_map.copy()
         if snake_state.is_alive:
             nonzero_indices = np.where(map_mat.snake_map != 0)
             map_mat.map_cache[nonzero_indices] = 0
-            if not food_state.eaten:
-                if len(snake_state.shape)>1:
-                    snake_state.shape.pop()
             for (x,y) in snake_state.shape:
                 map_mat.map_cache[x][y] = self.config.SNAKE_IDX
             map_mat.map_cache[food_position.x][food_position.y] = self.config.FOOD_IDX
