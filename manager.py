@@ -12,7 +12,7 @@ import pygame
 import numpy as np
 from types import SimpleNamespace
 from entity import EntityManager
-from system import InputSystem, MovementSystem, CollisionSystem, RenderSystem, MapSystem, GenerateSystem
+from system import InputSystem, MovementSystem, CollisionSystem, RenderSystem, MapSystem, GenerateSystem, test_GenerateSystem
 from component import PositionComponent, SpeedComponent, ColorComponent, StateComponent, MapComponent, DirectionComponent, InputComponent
 
 class GameManager:
@@ -40,6 +40,7 @@ class Systems:
         self.sys_render = RenderSystem(self.game_manager.screen, self.config)
         self.sys_map = MapSystem(self.config)
         self.sys_gen = GenerateSystem(self.config)
+        self.test_sys_gen = test_GenerateSystem(self.config)
 
 class Entities:
     def __init__(self, game_manager) -> None:

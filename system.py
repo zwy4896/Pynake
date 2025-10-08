@@ -22,6 +22,11 @@ class InputSystem:
             pygame.K_TAB: 'pause',
             pygame.K_RETURN: 'restart',
         }
+        self.handlers = {
+            'running': self._handle_running,
+            'paused': self._handle_paused,
+            'game_over': self._handle_game_over
+        }
         self.prev_keys = pygame.key.get_pressed()
     def process(self, direction, map_comp, input_component):
         keys = pygame.key.get_pressed()
@@ -35,18 +40,14 @@ class InputSystem:
     def handle_key_event(self, key, direction, map_comp, input_component):
         action = self.key_mapping.get(key)
         if not action:
+            print(action)
             return
-        handlers = {
-            'running': self._handle_running,
-            'paused': self._handle_paused,
-            'game_over': self._handle_game_over
-        }
 
         state = 'game_over' if map_comp.game_over else 'paused' if map_comp.paused else 'running'
-        handlers[state](action, direction, map_comp, input_component)
+        self.handlers[state](action, direction, map_comp, input_component)
     def _handle_running(self, action, direction, map_comp, input_component):
         if action in ['left', 'right', 'up', 'down']:
-            if not self.is_opposite(action, direction.direction):
+            if self.is_opposite(action, direction.direction):
                 input_component.next_direction = action
         elif action == 'pause':
             map_comp.paused = True
@@ -75,6 +76,8 @@ class InputSystem:
 # 移动系统
 class MovementSystem:
     def process(self, position, speed, direction, state, input_component):
+        if state.is_blocked:
+            state.is_blocked = not state.is_blocked
         if state.is_alive:
             self.apply_direction(direction, input_component)
             if direction.direction == 'left':
@@ -85,7 +88,6 @@ class MovementSystem:
                 position.y -= 1
             elif direction.direction == 'down':
                 position.y += 1
-            # self.fall_time = current_time
             new_head = (position.x, position.y)
             state.shape.insert(0, new_head)
 
@@ -102,26 +104,40 @@ class CollisionSystem(MovementSystem):
         self.playfield_height = config.PLAYFIELD_HEIGHT
     
     def process(self, snake_position, snake_state, food_position, food_state):
-        head = (snake_position.x, snake_position.y)
-        if not (snake_position.x in range(0, self.playfield_width) and snake_position.y in range(0, self.playfield_height)):
-            # 与边界碰撞，状态=碰撞，死亡
-            snake_state.collision = True
-            snake_state.is_alive = False
-            return
-        if head in list(snake_state.shape_set - {head}):
-            # 自身碰撞
-            snake_state.collision = True
-            snake_state.is_alive = False
-            return
-        if food_position.x == snake_position.x and food_position.y == snake_position.y:
-            # 吃到食物
-            snake_state.collision = True
-            snake_state.is_alive = True
-            food_state.collision = True
-            food_state.is_alive = False
-            food_state.eaten = True
+        print('BLOCKED!!!!!',snake_state.is_blocked)
+        print('EATEN##############',food_state.eaten)
+        if not snake_state.is_blocked:
+            head = (snake_position.x, snake_position.y)
+            if not (snake_position.x in range(0, self.playfield_width) and snake_position.y in range(0, self.playfield_height)):
+                # 与边界碰撞，状态=碰撞，死亡
+                snake_state.collision = True
+                snake_state.is_alive = False
+                snake_state.is_blocked = True
+                return 1
+            if head in snake_state.shape[1:]:
+                # 自身碰撞
+                snake_state.collision = True
+                snake_state.is_alive = False
+                snake_state.is_blocked = True
+                return 2
+            if food_position.x == snake_position.x and food_position.y == snake_position.y:
+                # 吃到食物
+                snake_state.collision = True
+                snake_state.is_alive = True
+                snake_state.is_blocked = True
+                food_state.collision = True
+                food_state.is_alive = False
+                food_state.active = False
+                food_state.eaten = True
+                return 3
+            else:
+                food_state.eaten = False
+                snake_state.collision = False
+                snake_state.is_alive = True
+                snake_state.is_blocked = False
+                return 0
         else:
-            food_state.eaten = False
+            return 0
             
 # 渲染系统
 class RenderSystem:
@@ -197,7 +213,6 @@ class MapSystem:
                     snake_state.shape.pop()
             for (x,y) in snake_state.shape:
                 map_mat.map_cache[x][y] = self.config.SNAKE_IDX
-            snake_state.shape_set = set(snake_state.shape)
             map_mat.map_cache[food_position.x][food_position.y] = self.config.FOOD_IDX
             map_mat.snake_map = map_mat.map_cache
         else:
@@ -207,14 +222,37 @@ class GenerateSystem:
     def __init__(self, config) -> None:
         self.config = config
     def process(self, snake_state, snake_dir, food_pos, food_state, snake_pos):
-        if not food_state.collision or not food_state.is_alive:
+        if not food_state.active:
             food_pos.x = random.randint(0, self.config.PLAYFIELD_WIDTH-1)
             food_pos.y = random.randint(0, self.config.PLAYFIELD_HEIGHT-1)
-            food_state.collision = True
+            # food_pos.x = 10
+            # food_pos.y = 12
+            food_state.active = True
             food_state.is_alive = True
-        if snake_state.active:
+            food_state.collision = False
+        if not snake_state.active:
             snake_pos.x = 8
             snake_pos.y = 12
-            snake_state.active = False
+            snake_state.active = True
+            snake_state.is_alive = True
+            snake_dir.direction = 'right'
+            snake_state.shape.insert(0, (snake_pos.x, snake_pos.y))
+class test_GenerateSystem:
+    def __init__(self, config) -> None:
+        self.config = config
+    def process(self, snake_state, snake_dir, food_pos, food_state, snake_pos):
+        if not food_state.active:
+            food_pos.x = random.randint(0, self.config.PLAYFIELD_WIDTH-1)
+            food_pos.y = random.randint(0, self.config.PLAYFIELD_HEIGHT-1)
+            # food_pos.x = 15
+            # food_pos.y = 12
+            food_state.active = True
+            food_state.is_alive = True
+            food_state.collision = False
+        if not snake_state.active:
+            snake_pos.x = 8
+            snake_pos.y = 12
+            snake_state.active = True
+            snake_state.is_alive = True
             snake_dir.direction = 'right'
             snake_state.shape.insert(0, (snake_pos.x, snake_pos.y))

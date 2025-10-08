@@ -32,15 +32,14 @@ class ColorComponent:
         self.color = color
 
 class StateComponent:
-    def __init__(self, active=True, length = 1, lock_delay_frames=30) -> None:
+    def __init__(self, active=False, length = 1) -> None:
         self.active = active
         self.action = ''
         self.collision = False
         self.hard_drop = False
-        self.lock_delay_frames = lock_delay_frames
         self.is_blocked = False
         self.length = length
-        self.is_alive = True
+        self.is_alive = False
         self.shape = []
         self.shape_set = set()
         self.eaten = False

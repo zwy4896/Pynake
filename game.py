@@ -15,6 +15,7 @@ from component import MapComponent, StateComponent, DirectionComponent, Position
 class Game:
     def __init__(self, config_path):
         self.game_manager = GameManager(config_path)
+        self.fps = 0
         self._init()
 
     def _init(self):
@@ -44,20 +45,26 @@ class Game:
 
     def _update(self):
         current_time = pygame.time.get_ticks()
+        self.systems.sys_gen.process(self.snake_state, self.snake_dir, self.food_pos, self.food_state, self.snake_pos)
         if current_time - self.fall_time >= self.snake_speed.y:
-            self.systems.sys_gen.process(self.snake_state, self.snake_dir, self.food_pos, self.food_state, self.snake_pos)
             self.systems.sys_movement.process(self.snake_pos, self.snake_speed, self.snake_dir, self.snake_state, self.input_component)
-            self.systems.sys_collision.process(self.snake_pos, self.snake_state, self.food_pos, self.food_state)
-            self.systems.sys_map.process(self.map, self.snake_state, self.food_pos, self.food_state)
             self.fall_time = current_time
+        self.systems.sys_collision.process(self.snake_pos, self.snake_state, self.food_pos, self.food_state)
+        # print(self.snake_state.shape)
+        # if self.food_state.eaten:
+        #     self.systems.sys_gen.process(self.snake_state, self.snake_dir, self.food_pos, self.food_state, self.snake_pos)
+        self.systems.sys_map.process(self.map, self.snake_state, self.food_pos, self.food_state)
+        # print(self.snake_state.shape)
     def _render(self):
         self.systems.sys_render.process(self.map)
 
     def run(self):
         while self.running:
+            # self.fps+=1
             self._handle_events()
             if not self.map.paused and not self.map.game_over:
                 if not self.map.restart:
+                    # print('第{}帧'.format(self.fps))
                     self._update()
                     self._render()
                 else:
