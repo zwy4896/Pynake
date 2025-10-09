@@ -75,24 +75,24 @@ class InputSystem:
                (new == 'right' and current != 'left')
 # 移动系统
 class MovementSystem:
-    def process(self, position, speed, direction, state, input_component, food_state):
-        if state.is_alive:
-            self.apply_direction(direction, input_component)
-            if direction.direction == 'left':
-               position.x -= 1
-            elif direction.direction == 'right':
-                position.x += 1
-            elif direction.direction == 'up':
-                position.y -= 1
-            elif direction.direction == 'down':
-                position.y += 1
-            new_head = (position.x, position.y)
-            state.shape.insert(0, new_head)
-            
-            if not food_state.eaten:
-                state.shape.pop()
-            else:
-                food_state.eaten = False
+    def process(self, map_comp, position, direction, state, input_component, food_state):
+        map_comp.snake_pos_cache = state.shape.copy()
+        self.apply_direction(direction, input_component)
+        if direction.direction == 'left':
+            position.x -= 1
+        elif direction.direction == 'right':
+            position.x += 1
+        elif direction.direction == 'up':
+            position.y -= 1
+        elif direction.direction == 'down':
+            position.y += 1
+        new_head = (position.x, position.y)
+        state.shape.insert(0, new_head)
+        
+        if not food_state.eaten:
+            state.shape.pop()
+        else:
+            food_state.eaten = False
 
     def apply_direction(self, direction, input_component):
         # 在蛇移动前调用，将 next_direction 应用
@@ -158,7 +158,7 @@ class RenderSystem:
     def process(self, map_mat):
         self._render('play_field')
         self._draw_grid()
-        self._render_block(map_mat.snake_map, map_mat.color_map)
+        self._render_block(map_mat.pos_map, map_mat.color_map)
         self._render_score(map_mat)
         if map_mat.game_over:
             self._render_game_over()
@@ -177,7 +177,7 @@ class RenderSystem:
         nonzero_indices = np.where(pos_mat != 0)
         for x, y in zip(nonzero_indices[0], nonzero_indices[1]):
             block_rect = pygame.Rect(x*self.block_size+2, y*self.block_size+2, self.real_block_size, self.real_block_size)
-            pygame.draw.rect(self.screen, color_mat[pos_mat[x][y]], block_rect)
+            pygame.draw.rect(self.screen, color_mat[x][y], block_rect)
     
     def _render_score(self, map_mat):
         self._render('score_board')
@@ -198,25 +198,33 @@ class RenderSystem:
 class MapSystem:
     def __init__(self, config) -> None:
         self.config = config
-    def process(self, map_mat, snake_state, food_position, food_state):
+    def process(self, map_mat, snake_state, food_position):
         # 1: snake
         # 2: food
         # 3: obstacle
-        map_mat.map_cache = map_mat.snake_map.copy()
-        if snake_state.is_alive:
-            nonzero_indices = np.where(map_mat.snake_map != 0)
-            map_mat.map_cache[nonzero_indices] = 0
-            for (x,y) in snake_state.shape:
-                map_mat.map_cache[x][y] = self.config.SNAKE_IDX
-            map_mat.map_cache[food_position.x][food_position.y] = self.config.FOOD_IDX
-            map_mat.snake_map = map_mat.map_cache
-        else:
+        if not snake_state.is_alive:
             map_mat.game_over = True
+            return
+        self._update_map(map_mat, map_mat.snake_pos_cache, snake_state.shape, self.config.SNAKE_IDX)
+        self._update_map(map_mat, map_mat.food_pos_cache, (food_position.x, food_position.y), self.config.FOOD_IDX)
+
+    def _update_map(self, arr,prev_coords, coords, value):
+        if not coords or prev_coords == coords:
+            arr.pos_map[coords[0], coords[1]] = value
+            arr.color_map[coords[0], coords[1]] = arr.color_def[value]
+            return
+        prev_coords = np.array(prev_coords)
+        coords = np.array(coords)
+        prev_tail = prev_coords[-1]
+        head = coords[0]
+        arr.pos_map[prev_tail[0], prev_tail[1]] = 0
+        arr.pos_map[head[0], head[1]] = value
+        arr.color_map[head[0], head[1]] = arr.color_def[value]
 
 class GenerateSystem:
     def __init__(self, config) -> None:
         self.config = config
-    def process(self, snake_state, snake_dir, food_pos, food_state, snake_pos):
+    def process(self, map, snake_state, snake_dir, food_pos, food_state, snake_pos):
         if not food_state.active:
             food_pos.x = random.randint(0, self.config.PLAYFIELD_WIDTH-1)
             food_pos.y = random.randint(0, self.config.PLAYFIELD_HEIGHT-1)
@@ -225,6 +233,7 @@ class GenerateSystem:
             food_state.active = True
             food_state.is_alive = True
             food_state.collision = False
+            map.food_pos_cache = (food_pos.x, food_pos.y)
         if not snake_state.active:
             snake_pos.x = 8
             snake_pos.y = 12

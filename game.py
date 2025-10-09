@@ -45,16 +45,13 @@ class Game:
                 continue
 
     def _update(self):
-        current_time = pygame.time.get_ticks()
-        self.systems.sys_gen.process(self.snake_state, self.snake_dir, self.food_pos, self.food_state, self.snake_pos)
-        if current_time - self.fall_time >= self.snake_speed.y:
-            self.systems.sys_movement.process(self.snake_pos, self.snake_speed, self.snake_dir, self.snake_state, self.input_component, self.food_state)
-            condition = self.systems.sys_collision.process(self.snake_pos, self.snake_state, self.food_pos, self.food_state)
+        self.systems.sys_gen.process(self.map, self.snake_state, self.snake_dir, self.food_pos, self.food_state, self.snake_pos)
+        self.systems.sys_movement.process(self.map, self.snake_pos, self.snake_dir, self.snake_state, self.input_component, self.food_state)
+        condition = self.systems.sys_collision.process(self.snake_pos, self.snake_state, self.food_pos, self.food_state)
+        if condition == 3:
             self.systems.sys_goal.process(self.map, self.food_state)
-            if condition == 3:
-                self.systems.sys_gen.process(self.snake_state, self.snake_dir, self.food_pos, self.food_state, self.snake_pos)
-            self.systems.sys_map.process(self.map, self.snake_state, self.food_pos, self.food_state)
-            self.fall_time = current_time
+            self.systems.sys_gen.process(self.map, self.snake_state, self.snake_dir, self.food_pos, self.food_state, self.snake_pos)
+        self.systems.sys_map.process(self.map, self.snake_state, self.food_pos)
     def _render(self):
         self.systems.sys_render.process(self.map)
 
@@ -63,13 +60,17 @@ class Game:
             self._handle_events()
             if not self.map.paused and not self.map.game_over:
                 if not self.map.restart:
-                    self._update()
-                    self._render()
+                    if self.snake_state.is_alive:
+                        current_time = pygame.time.get_ticks()
+                        if current_time - self.fall_time >= self.snake_speed.y:
+                                self._update()
+                                self.fall_time = current_time
+                        self._render()
+                    else:
+                        continue
                 else:
                     self._init()
-            elif self.map.game_over:
-                self._render()
-            elif self.map.paused:
+            elif self.map.game_over or self.map.paused:
                 self._render()
             pygame.display.update()
             self.game_manager.clock.tick(self.game_manager.config.FPS)
