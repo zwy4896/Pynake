@@ -49,11 +49,12 @@ class Game:
         self.systems.sys_gen.process(self.snake_state, self.snake_dir, self.food_pos, self.food_state, self.snake_pos)
         if current_time - self.fall_time >= self.snake_speed.y:
             self.systems.sys_movement.process(self.snake_pos, self.snake_speed, self.snake_dir, self.snake_state, self.input_component, self.food_state)
-            self.fall_time = current_time
             condition = self.systems.sys_collision.process(self.snake_pos, self.snake_state, self.food_pos, self.food_state)
+            self.systems.sys_goal.process(self.map, self.food_state)
             if condition == 3:
                 self.systems.sys_gen.process(self.snake_state, self.snake_dir, self.food_pos, self.food_state, self.snake_pos)
             self.systems.sys_map.process(self.map, self.snake_state, self.food_pos, self.food_state)
+            self.fall_time = current_time
     def _render(self):
         self.systems.sys_render.process(self.map)
 

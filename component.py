@@ -61,6 +61,7 @@ class MapComponent:
         self.level = level
         self.new_head = None
         self.tail = None
+        self.score = 0
 class DirectionComponent:
     def __init__(self, direction='') -> None:
         self.direction = direction

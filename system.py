@@ -159,6 +159,7 @@ class RenderSystem:
         self._render('play_field')
         self._draw_grid()
         self._render_block(map_mat.snake_map, map_mat.color_map)
+        self._render_score(map_mat)
         if map_mat.game_over:
             self._render_game_over()
         if map_mat.paused:
@@ -178,9 +179,9 @@ class RenderSystem:
             block_rect = pygame.Rect(x*self.block_size+2, y*self.block_size+2, self.real_block_size, self.real_block_size)
             pygame.draw.rect(self.screen, color_mat[pos_mat[x][y]], block_rect)
     
-    def _render_score(self):
+    def _render_score(self, map_mat):
         self._render('score_board')
-        score_text = self.font.render(str(self.map_mat.score), True, (0,0, 255))
+        score_text = self.font.render(str(map_mat.score), True, (0,0, 255))
         score_rect = score_text.get_rect(center=(self.screen.get_width() - self.score_board.get_rect().centerx, self.score_board.get_rect().centery//2))
         self.screen.blit(score_text, score_rect)
     
@@ -250,3 +251,8 @@ class test_GenerateSystem:
             snake_state.is_alive = True
             snake_dir.direction = 'right'
             snake_state.shape.insert(0, (snake_pos.x, snake_pos.y))
+
+class GoalSystem:
+    def process(self, map_comp, food_state):
+        if food_state.eaten:
+            map_comp.score += 1
