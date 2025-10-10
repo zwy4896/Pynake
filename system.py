@@ -198,20 +198,22 @@ class RenderSystem:
 class MapSystem:
     def __init__(self, config) -> None:
         self.config = config
-    def process(self, map_mat, snake_state, food_position):
+    def process(self, map_mat, snake_state, food_state):
         # 1: snake
         # 2: food
         # 3: obstacle
         if not snake_state.is_alive:
             map_mat.game_over = True
             return
-        self._update_map(map_mat, map_mat.snake_pos_cache, snake_state.shape, self.config.SNAKE_IDX)
-        self._update_map(map_mat, map_mat.food_pos_cache, (food_position.x, food_position.y), self.config.FOOD_IDX)
+        self._update_pos_map(map_mat, map_mat.snake_pos_cache, snake_state.shape, self.config.SNAKE_IDX)
+        self._update_pos_map(map_mat, map_mat.food_pos_cache, food_state.shape, self.config.FOOD_IDX)
+        self._update_color_map(map_mat.color_def, map_mat.color_map, snake_state.shape, food_state.shape)
 
-    def _update_map(self, arr,prev_coords, coords, value):
-        if not coords or prev_coords == coords:
+    def _update_pos_map(self, arr,prev_coords, coords, value):
+        if not coords:
+            return
+        if prev_coords == coords:
             arr.pos_map[coords[0], coords[1]] = value
-            arr.color_map[coords[0], coords[1]] = arr.color_def[value]
             return
         prev_coords = np.array(prev_coords)
         coords = np.array(coords)
@@ -219,8 +221,16 @@ class MapSystem:
         head = coords[0]
         arr.pos_map[prev_tail[0], prev_tail[1]] = 0
         arr.pos_map[head[0], head[1]] = value
-        arr.color_map[head[0], head[1]] = arr.color_def[value]
-
+    def _update_color_map(self, color_def, color_map, snake_coords, food_coords=None):
+        color_map.fill(0)
+        if len(snake_coords) > 0:
+            head = snake_coords[0]
+            color_map[head[0], head[1]] = color_def[3]
+            if len(snake_coords) > 1:
+                body = np.asarray(snake_coords[1:])
+                color_map[body[:,0], body[:,1]] = color_def[self.config.SNAKE_IDX]
+        if food_coords is not None and len(food_coords) > 0:
+            color_map[food_coords[0], food_coords[1]] = color_def[self.config.FOOD_IDX]
 class GenerateSystem:
     def __init__(self, config) -> None:
         self.config = config
@@ -233,6 +243,7 @@ class GenerateSystem:
             food_state.active = True
             food_state.is_alive = True
             food_state.collision = False
+            food_state.shape = (food_pos.x, food_pos.y)
             map.food_pos_cache = (food_pos.x, food_pos.y)
         if not snake_state.active:
             snake_pos.x = 8

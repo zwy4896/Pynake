@@ -51,7 +51,7 @@ class Game:
         if condition == 3:
             self.systems.sys_goal.process(self.map, self.food_state)
             self.systems.sys_gen.process(self.map, self.snake_state, self.snake_dir, self.food_pos, self.food_state, self.snake_pos)
-        self.systems.sys_map.process(self.map, self.snake_state, self.food_pos)
+        self.systems.sys_map.process(self.map, self.snake_state, self.food_state)
     def _render(self):
         self.systems.sys_render.process(self.map)
 
