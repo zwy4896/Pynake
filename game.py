@@ -58,20 +58,20 @@ class Game:
     def run(self):
         while self.running:
             self._handle_events()
-            if not self.map.paused and not self.map.game_over:
-                if not self.map.restart:
-                    if self.snake_state.is_alive:
-                        current_time = pygame.time.get_ticks()
-                        if current_time - self.fall_time >= self.snake_speed.y:
-                                self._update()
-                                self.fall_time = current_time
-                        self._render()
+            current_time = pygame.time.get_ticks()
+            if current_time - self.fall_time >= self.snake_speed.y:
+                if not self.map.paused and not self.map.game_over:
+                    if not self.map.restart:
+                        if self.snake_state.is_alive:
+                            self._update()
+                            self._render()
+                        else:
+                            continue
                     else:
-                        continue
-                else:
-                    self._init()
-            elif self.map.game_over or self.map.paused:
-                self._render()
-            pygame.display.update()
+                        self._init()
+                elif self.map.game_over or self.map.paused:
+                    self._render()
+                pygame.display.update()
+                self.fall_time = current_time
             self.game_manager.clock.tick(self.game_manager.config.FPS)
         pygame.quit()

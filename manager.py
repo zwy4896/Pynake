@@ -18,7 +18,7 @@ from component import PositionComponent, SpeedComponent, ColorComponent, StateCo
 class GameManager:
     def __init__(self, config_path) -> None:
         pygame.init()
-        pygame.display.set_caption("The Snake")
+        pygame.display.set_caption("Pynake")
         self.config = self._get_config_from_yaml(config_path)
         self.screen = pygame.display.set_mode((self.config.SCREEN_WIDTH, self.config.SCREEN_HEIGHT), vsync=True)
         self.clock = pygame.time.Clock()
